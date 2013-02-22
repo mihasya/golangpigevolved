@@ -53,6 +53,14 @@ func stayAtK(k int) strategy {
 	}
 }
 
+func random(s score) action {
+	choice := rand.Float64()
+	if choice >= 0.5 {
+		return roll
+	}
+	return stay
+}
+
 // play simulates a Pig game and returns the winner (0 or 1).
 func play(strategy0, strategy1 strategy) int {
 	strategies := []strategy{strategy0, strategy1}
@@ -70,16 +78,22 @@ func play(strategy0, strategy1 strategy) int {
 }
 
 // roundRobin simulates a series of games between every pair of strategies.
-func roundRobin(strategies []strategy) ([]int, int) {
-	wins := make([]int, len(strategies))
-	for i := 0; i < len(strategies); i++ {
+func roundRobin(strategies map[string]strategy) (map[string]int, int) {
+	names := make([]string, len(strategies))
+	i := 0
+	for name := range strategies {
+		names[i] = name
+		i++
+	}
+	wins := make(map[string]int)
+	for i := 0; i < len(names); i++ {
 		for j := i + 1; j < len(strategies); j++ {
 			for k := 0; k < gamesPerSeries; k++ {
-				winner := play(strategies[i], strategies[j])
+				winner := play(strategies[names[i]], strategies[names[j]])
 				if winner == 0 {
-					wins[i]++
+					wins[names[i]]++
 				} else {
-					wins[j]++
+					wins[names[j]]++
 				}
 			}
 		}
@@ -108,14 +122,15 @@ func ratioString(vals ...int) string {
 }
 
 func main() {
-	strategies := make([]strategy, win)
-	for k := range strategies {
-		strategies[k] = stayAtK(k + 1)
+	strategies := map[string]strategy {}
+	for k := 1; k < 101; k++ {
+		strategies[fmt.Sprintf("staying at %4d", k)] = stayAtK(k + 1)
 	}
+	strategies["random"] = random
 	wins, games := roundRobin(strategies)
 
-	for k := range strategies {
-		fmt.Printf("Wins, losses staying at k =% 4d: %s\n",
-			k+1, ratioString(wins[k], games-wins[k]))
+	for name:= range strategies {
+		fmt.Printf("Wins, losses %v: %s\n",
+			name, ratioString(wins[name], games-wins[name]))
 	}
 }
