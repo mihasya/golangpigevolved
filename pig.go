@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// original code is at http://golang.org/doc/codewalk/functions/
+
 package main
 
 import (
@@ -41,34 +43,48 @@ func stay(s score) (score, bool) {
 }
 
 // A strategy chooses an action for any given score.
-type strategy func(score) action
-
-// stayAtK returns a strategy that rolls until thisTurn is at least k, then stays.
-func stayAtK(k int) strategy {
-	return func(s score) action {
-		if s.thisTurn >= k {
-			return stay
-		}
-		return roll
-	}
+type Strategy interface {
+	fmt.Stringer
+	nextAction(score) action
 }
 
-func random(s score) action {
-	choice := rand.Float64()
-	if choice >= 0.5 {
-		return roll
+// stayAtK returns rolls until thisTurn is at least k, then stays.
+type StayAtK struct {
+	k int
+}
+
+func (self *StayAtK) nextAction(s score) action {
+	if (s.thisTurn >= self.k) {
+		return stay
 	}
-	return stay
+	return roll
+}
+
+func (self *StayAtK) String() string {
+	return fmt.Sprintf("Stay at %d", self.k)
+}
+
+type Random struct {}
+
+func (self *Random) nextAction(s score) action {
+	if rand.Float64() > 0.5 {
+		return stay
+	}
+	return roll
+}
+
+func (self *Random) String() string {
+	return "Random!"
 }
 
 // play simulates a Pig game and returns the winner (0 or 1).
-func play(strategy0, strategy1 strategy) int {
-	strategies := []strategy{strategy0, strategy1}
+func play(strategy0, strategy1 Strategy) int {
+	strategies := []Strategy{strategy0, strategy1}
 	var s score
 	var turnIsOver bool
 	currentPlayer := rand.Intn(2) // Randomly decide who plays first
 	for s.player+s.thisTurn < win {
-		action := strategies[currentPlayer](s)
+		action := strategies[currentPlayer].nextAction(s)
 		s, turnIsOver = action(s)
 		if turnIsOver {
 			currentPlayer = (currentPlayer + 1) % 2
@@ -78,22 +94,16 @@ func play(strategy0, strategy1 strategy) int {
 }
 
 // roundRobin simulates a series of games between every pair of strategies.
-func roundRobin(strategies map[string]strategy) (map[string]int, int) {
-	names := make([]string, len(strategies))
-	i := 0
-	for name := range strategies {
-		names[i] = name
-		i++
-	}
-	wins := make(map[string]int)
-	for i := 0; i < len(names); i++ {
+func roundRobin(strategies []Strategy) ([]int, int) {
+	wins := make([]int, len(strategies))
+	for i := 0; i < len(strategies); i++ {
 		for j := i + 1; j < len(strategies); j++ {
 			for k := 0; k < gamesPerSeries; k++ {
-				winner := play(strategies[names[i]], strategies[names[j]])
+				winner := play(strategies[i], strategies[j])
 				if winner == 0 {
-					wins[names[i]]++
+					wins[i]++
 				} else {
-					wins[names[j]]++
+					wins[j]++
 				}
 			}
 		}
@@ -122,15 +132,16 @@ func ratioString(vals ...int) string {
 }
 
 func main() {
-	strategies := map[string]strategy {}
-	for k := 1; k < 101; k++ {
-		strategies[fmt.Sprintf("staying at %4d", k)] = stayAtK(k + 1)
+	strategies := make([]Strategy, win + 1)
+	var k int
+	for k = 0; k < win; k++ {
+		strategies[k] = &StayAtK{k + 1}
 	}
-	strategies["random"] = random
+	strategies[k] = &Random{}
 	wins, games := roundRobin(strategies)
 
-	for name:= range strategies {
+	for i := range strategies {
 		fmt.Printf("Wins, losses %v: %s\n",
-			name, ratioString(wins[name], games-wins[name]))
+			strategies[i], ratioString(wins[i], games-wins[i]))
 	}
 }
