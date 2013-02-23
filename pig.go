@@ -96,16 +96,27 @@ func play(strategy0, strategy1 Strategy) int {
 // roundRobin simulates a series of games between every pair of strategies.
 func roundRobin(strategies []Strategy) ([]int, int) {
 	wins := make([]int, len(strategies))
+	results := make(chan []int)
 	for i := 0; i < len(strategies); i++ {
-		for j := i + 1; j < len(strategies); j++ {
-			for k := 0; k < gamesPerSeries; k++ {
-				winner := play(strategies[i], strategies[j])
-				if winner == 0 {
-					wins[i]++
-				} else {
-					wins[j]++
+		go func(i int) {
+			winCount := make([]int, len(strategies))
+			for j := i + 1; j < len(strategies); j++ {
+				for k := 0; k < gamesPerSeries; k++ {
+					winner := play(strategies[i], strategies[j])
+					if winner == 0 {
+						winCount[i]++
+					} else {
+						winCount[j]++
+					}
 				}
 			}
+			results <- winCount
+		}(i)
+	}
+	for i := 0; i < len(strategies); i++ {
+		r := <-results
+		for j := range r {
+			wins[j] += r[j]
 		}
 	}
 	gamesPerStrategy := gamesPerSeries * (len(strategies) - 1) // no self play
