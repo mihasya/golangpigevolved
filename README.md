@@ -2,4 +2,4 @@ As part of learning go, I've taken the Pig game from http://golang.org/doc/codew
 
 Commit messages have details on steps.
 
-
+Any and all feedback on how anything I've done can be done better/more idiomatically is welcome and appreciated.
